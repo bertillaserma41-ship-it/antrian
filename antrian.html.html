@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Queue Master Hero - Antrian Rumah Sakit</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        hospital: {
+                            teal: '#00B4D8',
+                            darkTeal: '#0077B6',
+                            emerald: '#10B981',
+                            coral: '#FF6B6B',
+                            yellow: '#FFB703',
+                            bgLight: '#E0F2FE'
+                        }
+                    },
+                    fontFamily: {
+                        heading: ['Fredoka', 'sans-serif'],
+                        body: ['Nunito', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: linear-gradient(135deg, #0284c7 0%, #0f172a 100%);
+            min-height: 100vh;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        h1, h2, h3, .font-heading {
+            font-family: 'Fredoka', sans-serif;
+        }
+
+        /* Glassmorphism card */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            border: 3px solid rgba(255, 255, 255, 0.6);
+        }
+
+        /* Queue item animations */
+        .queue-item {
+            transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .enqueue-anim {
+            animation: slideInRight 0.4s ease-out forwards;
+        }
+
+        .dequeue-anim {
+            animation: slideOutLeft 0.4s ease-in forwards;
+        }
+
+        @keyframes slideInRight {
+            0% { opacity: 0; transform: translateX(60px) scale(0.7); }
+            100% { opacity: 1; transform: translateX(0) scale(1); }
+        }
+
+        @keyframes slideOutLeft {
+            0% { opacity: 1; transform: translateX(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-50px) scale(0.5); }
+        }
+
+        .btn-touch {
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+        }
+        .btn-touch:active {
+            transform: scale(0.94);
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+        }
+        .floating {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        /* Custom printing optimization for Certificate */
+        @media print {
+            body { background: white !important; }
+            main { border: none !important; box-shadow: none !important; max-width: 100% !important; }
+            header, footer, .no-print { display: none !important; }
+            #page-result { display: block !important; }
+            #certificate-card { border: 4px solid #0284c7 !important; }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center p-2 sm:p-4 text-slate-800">
+
+    <!-- MAIN CONTAINER APPLICATION -->
+    <main class="w-full max-w-5xl glass-card rounded-3xl shadow-2xl overflow-hidden flex flex-col min-h-[92vh]">
+
+        <!-- HEADER -->
+        <header class="bg-gradient-to-r from-hospital-darkTeal to-teal-600 text-white p-4 sm:p-5 flex justify-between items-center shadow-md relative z-10">
+            <div class="flex items-center space-x-3">
+                <div class="bg-white/20 p-2.5 rounded-2xl text-yellow-300 text-2xl sm:text-3xl floating">
+                    <i class="fa-solid fa-hospital-user"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl md:text-3xl font-bold tracking-wide">Queue Master Hero</h1>
+                    <p class="text-xs sm:text-sm text-cyan-100 hidden sm:block">Simulasi Antrian Rumah Sakit Sehat Sejahtera (FIFO)</p>
+                </div>
+            </div>
+
+            <!-- User Info & Sound Toggle -->
+            <div id="header-user-info" class="hidden flex items-center space-x-3">
+                <div class="bg-black/20 px-3 py-1.5 sm:px-4 sm:py-2 rounded-2xl text-right border border-white/20">
+                    <div id="display-user-name" class="font-bold text-sm sm:text-base text-yellow-300 truncate max-w-[120px] sm:max-w-none">Pasien</div>
+                    <div id="display-user-class" class="text-xs text-cyan-100">Kelas --</div>
+                </div>
+                <button id="btn-sound-toggle" onclick="toggleSound()" class="w-11 h-11 bg-white/20 hover:bg-white/30 rounded-2xl flex items-center justify-center text-xl transition btn-touch">
+                    <i id="sound-icon" class="fa-solid fa-volume-high"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- CONTAINER PAGE CONTENT -->
+        <div class="flex-1 p-4 sm:p-6 md:p-8 flex flex-col justify-center relative overflow-y-auto">
+
+            <!-- ================= HALAMAN 1: LOGIN ================= -->
+            <section id="page-login" class="max-w-md mx-auto w-full py-2 my-auto">
+                <div class="bg-white p-6 sm:p-8 rounded-3xl border-2 border-sky-100 shadow-xl text-center">
+                    <div class="w-20 h-20 bg-gradient-to-tr from-hospital-darkTeal to-hospital-teal text-white rounded-3xl mx-auto flex items-center justify-center text-4xl shadow-lg mb-4 floating">
+                        <i class="fa-solid fa-user-doctor"></i>
+                    </div>
+                    <h2 class="text-2xl sm:text-3xl font-bold text-slate-800 mb-1">Pendaftaran Dokter</h2>
+                    <p class="text-xs sm:text-sm text-slate-500 mb-6">Masukkan data diri untuk memulai bertugas sebagai Petugas Antrian Rumah Sakit!</p>
+
+                    <form id="form-login" onsubmit="handleLogin(event)" class="space-y-4 text-left">
+                        <div>
+                            <label class="block text-xs sm:text-sm font-bold text-slate-700 mb-1 ml-1"><i class="fa-solid fa-user text-hospital-teal mr-1"></i> Nama Lengkap Petugas / Siswa</label>
+                            <input type="text" id="input-nama" required placeholder="Contoh: Dr. Budi Santoso" 
+                                class="w-full px-4 py-3 sm:py-3.5 rounded-2xl border-2 border-sky-200 focus:border-hospital-teal focus:outline-none text-base font-semibold bg-sky-50/50 transition">
+                        </div>
+                        <div>
+                            <label class="block text-xs sm:text-sm font-bold text-slate-700 mb-1 ml-1"><i class="fa-solid fa-school text-hospital-teal mr-1"></i> Kelas / Tingkat</label>
+                            <input type="text" id="input-kelas" required placeholder="Contoh: 10 IPA 2 / X-A" 
+                                class="w-full px-4 py-3 sm:py-3.5 rounded-2xl border-2 border-sky-200 focus:border-hospital-teal focus:outline-none text-base font-semibold bg-sky-50/50 transition">
+                        </div>
+
+                        <button type="submit" 
+                            class="w-full mt-4 bg-gradient-to-r from-hospital-teal to-hospital-darkTeal hover:from-teal-500 hover:to-blue-700 text-white font-bold py-4 rounded-2xl text-lg sm:text-xl shadow-lg hover:shadow-xl transition btn-touch flex items-center justify-center space-x-2">
+                            <span>Mulai Petualangan Antrian</span>
+                            <i class="fa-solid fa-play"></i>
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- ================= HALAMAN 2: MODUL MATERI QUEUE ================= -->
+            <section id="page-materi" class="hidden max-w-3xl mx-auto w-full my-auto space-y-5">
+                <div class="text-center">
+                    <span class="bg-sky-100 text-hospital-darkTeal text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Konsep Struktur Data</span>
+                    <h2 class="text-2xl sm:text-4xl font-bold text-slate-800 mt-1">Sistem Antrian Rumah Sakit (Queue)</h2>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-sky-50 border-2 border-sky-200 p-4 rounded-2xl flex items-start space-x-3">
+                        <div class="bg-hospital-darkTeal text-white p-3 rounded-xl text-xl shrink-0"><i class="fa-solid fa-right-left"></i></div>
+                        <div>
+                            <h3 class="font-bold text-slate-800">Prinsip Utama: FIFO</h3>
+                            <p class="text-xs text-slate-600 mt-1"><b>First-In, First-Out</b>: Pasien yang pertama kali mendaftar adalah pasien yang pertama kali dipanggil masuk ke ruang dokter.</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-emerald-50 border-2 border-emerald-200 p-4 rounded-2xl flex items-start space-x-3">
+                        <div class="bg-emerald-600 text-white p-3 rounded-xl text-xl shrink-0"><i class="fa-solid fa-user-plus"></i></div>
+                        <div>
+                            <h3 class="font-bold text-slate-800">ENQUEUE (Pasien Datang)</h3>
+                            <p class="text-xs text-slate-600 mt-1">Proses memasukkan/menambahkan pasien baru ke posisi paling belakang antrian (<b>Rear / Tail</b>).</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-rose-50 border-2 border-rose-200 p-4 rounded-2xl flex items-start space-x-3">
+                        <div class="bg-rose-500 text-white p-3 rounded-xl text-xl shrink-0"><i class="fa-solid fa-user-check"></i></div>
+                        <div>
+                            <h3 class="font-bold text-slate-800">DEQUEUE (Pasien Dipanggil)</h3>
+                            <p class="text-xs text-slate-600 mt-1">Proses memanggil/menghapus pasien paling depan (<b>Front / Head</b>) untuk segera masuk ke ruang penanganan dokter.</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-amber-50 border-2 border-amber-200 p-4 rounded-2xl flex items-start space-x-3">
+                        <div class="bg-amber-500 text-white p-3 rounded-xl text-xl shrink-0"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                        <div>
+                            <h3 class="font-bold text-slate-800">Overflow & Underflow</h3>
+                            <p class="text-xs text-slate-600 mt-1"><b>Overflow:</b> Ruang tunggu penuh (melebihi kapasitas).<br><b>Underflow:</b> Memanggil pasien saat ruang tunggu kosong.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center pt-2">
+                    <button onclick="showPage('page-select-level')" 
+                        class="bg-hospital-darkTeal hover:bg-blue-800 text-white font-bold px-8 py-4 rounded-2xl text-lg shadow-lg transition btn-touch inline-flex items-center space-x-2">
+                        <span>Pilih Level Permainan</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </section>
+
+            <!-- ================= HALAMAN 3: PILIH LEVEL ================= -->
+            <section id="page-select-level" class="hidden max-w-4xl mx-auto w-full my-auto space-y-6">
+                <div class="text-center">
+                    <h2 class="text-2xl sm:text-4xl font-bold text-slate-800">Pilih Ruang Tugas / Level</h2>
+                    <p class="text-xs sm:text-sm text-slate-500">Selesaikan setiap tantangan untuk menjadi Master Antrian Rumah Sakit!</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    <!-- LEVEL 1 -->
+                    <div class="bg-white border-4 border-emerald-300 rounded-3xl p-5 shadow-lg flex flex-col justify-between hover:border-emerald-500 transition">
+                        <div>
+                            <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center font-bold text-xl mb-3">1</div>
+                            <h3 class="text-lg font-bold text-slate-800">Poliklinik Umum</h3>
+                            <span class="inline-block bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-1 rounded-full my-2">Dasar - Registrasi FIFO</span>
+                            <p class="text-xs text-slate-600">Pelajari aksi Enqueue saat pasien datang dan Dequeue sesuai nomor antrian pertama.</p>
+                        </div>
+                        <button onclick="startLevel(1)" class="mt-5 w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-2xl transition btn-touch shadow-md">Mainkan Level 1</button>
+                    </div>
+
+                    <!-- LEVEL 2 -->
+                    <div class="bg-white border-4 border-amber-300 rounded-3xl p-5 shadow-lg flex flex-col justify-between hover:border-amber-500 transition">
+                        <div>
+                            <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center font-bold text-xl mb-3">2</div>
+                            <h3 class="text-lg font-bold text-slate-800">Ruang Tunggu Spesialis</h3>
+                            <span class="inline-block bg-amber-100 text-amber-800 text-xs font-bold px-2.5 py-1 rounded-full my-2">Menengah - Kapasitas (Max Size)</span>
+                            <p class="text-xs text-slate-600">Atur antrian dengan kursi terbatas. Hindari masalah Overflow dan Underflow!</p>
+                        </div>
+                        <button onclick="startLevel(2)" class="mt-5 w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-2xl transition btn-touch shadow-md">Mainkan Level 2</button>
+                    </div>
+
+                    <!-- LEVEL 3 -->
+                    <div class="bg-white border-4 border-rose-300 rounded-3xl p-5 shadow-lg flex flex-col justify-between hover:border-rose-500 transition">
+                        <div>
+                            <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center font-bold text-xl mb-3">3</div>
+                            <h3 class="text-lg font-bold text-slate-800">Instalasi Gawat Darurat (IGD)</h3>
+                            <span class="inline-block bg-rose-100 text-rose-800 text-xs font-bold px-2.5 py-1 rounded-full my-2">Lanjutan - Kecepatan & Waktu</span>
+                            <p class="text-xs text-slate-600">Tantangan cepat pemanggilan pasien darurat dengan batas waktu ketat.</p>
+                        </div>
+                        <button onclick="startLevel(3)" class="mt-5 w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 rounded-2xl transition btn-touch shadow-md">Mainkan Level 3</button>
+                    </div>
+                </div>
+
+                <div class="text-center pt-2">
+                    <button onclick="showPage('page-materi')" class="text-hospital-darkTeal font-bold hover:underline text-sm">
+                        <i class="fa-solid fa-book-medical mr-1"></i> Baca Kembali Modul Penjelasan Queue
+                    </button>
+                </div>
+            </section>
+
+            <!-- ================= HALAMAN 4: ARENA SIMULASI GAMEPLAY ================= -->
+            <section id="page-gameplay" class="hidden flex flex-col flex-1 justify-between space-y-3">
+                
+                <!-- TOP GAME INFOBAR -->
+                <div class="bg-sky-50 border-2 border-sky-100 rounded-2xl p-3 flex flex-wrap justify-between items-center gap-2 shadow-sm">
+                    <div class="flex items-center space-x-2">
+                        <span id="game-level-badge" class="bg-hospital-darkTeal text-white font-bold text-xs sm:text-sm px-3 py-1 rounded-xl">Level 1</span>
+                        <div id="game-timer-container" class="flex items-center text-rose-600 font-bold text-sm sm:text-base ml-2">
+                            <i class="fa-solid fa-clock mr-1"></i> <span id="game-timer">00:00</span>
+                        </div>
+                    </div>
+
+                    <!-- Misi / Instruksi Soal -->
+                    <div class="bg-white px-4 py-1.5 rounded-xl border border-sky-200 shadow-inner flex-1 mx-2 text-center">
+                        <span class="text-[10px] text-slate-400 block uppercase font-extrabold tracking-wider">Tugas / Instruksi Saat Ini:</span>
+                        <p id="game-mission-text" class="text-xs sm:text-sm font-bold text-hospital-darkTeal">Tambahkan pasien pertama ke antrian</p>
+                    </div>
+
+                    <!-- Score Indicator -->
+                    <div class="bg-amber-100 text-amber-900 font-bold px-3 py-1 rounded-xl text-xs sm:text-sm flex items-center">
+                        <i class="fa-solid fa-star text-amber-500 mr-1.5"></i> Skor: <span id="game-score" class="ml-1">0</span>
+                    </div>
+                </div>
+
+                <!-- NOTIFIKASI SYSTEM / ERROR MSG -->
+                <div id="status-message" class="hidden p-2.5 rounded-xl text-center text-xs sm:text-sm font-bold shadow-md transition"></div>
+
+                <!-- ARENA VISUALISASI RUMAH SAKIT -->
+                <div class="flex-1 bg-gradient-to-b from-sky-50 to-slate-100 border-4 border-slate-200 rounded-3xl p-3 sm:p-5 flex flex-col justify-between relative overflow-hidden min-h-[260px]">
+                    
+                    <!-- Area Ruang Dokter (Destination Dequeue) & Jalur Antrian -->
+                    <div class="flex justify-between items-center border-b border-slate-200 pb-2">
+                        <div class="flex items-center space-x-2 text-xs font-extrabold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-xl">
+                            <i class="fa-solid fa-door-open"></i>
+                            <span>RUANG PERIKSA DOKTER (FRONT / DEPAN)</span>
+                        </div>
+                        <div class="flex items-center space-x-2 text-xs font-extrabold text-sky-700 bg-sky-100 px-3 py-1 rounded-xl">
+                            <span>LOBBY PENDAFTARAN (REAR / BELAKANG)</span>
+                            <i class="fa-solid fa-right-to-bracket"></i>
+                        </div>
+                    </div>
+
+                    <!-- CONTAINER JALUR PASIEN -->
+                    <div id="queue-container" class="flex items-center justify-start sm:justify-center space-x-3 overflow-x-auto py-6 px-2 min-h-[150px]">
+                        <!-- Elemen Pasien dirender secara dinamis di sini -->
+                    </div>
+
+                    <!-- Capacity Progress Bar -->
+                    <div id="capacity-bar-container" class="w-full bg-slate-200 rounded-full h-3 overflow-hidden mt-1 hidden">
+                        <div id="capacity-bar" class="bg-hospital-teal h-full transition-all duration-300 w-0"></div>
+                    </div>
+                    <div id="capacity-text" class="text-center text-xs text-slate-500 font-bold mt-1 hidden">Kapasitas Kursi: 0 / 5</div>
+                </div>
+
+                <!-- KONTROL / TOMBOL AKSI UTAMA -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <!-- ENQUEUE CONTROL -->
+                    <div class="flex flex-col bg-emerald-50 border-2 border-emerald-200 p-3 rounded-2xl justify-between">
+                        <label class="text-xs font-extrabold text-emerald-800 mb-1.5 flex items-center">
+                            <i class="fa-solid fa-user-plus mr-1 text-emerald-600"></i> ENQUEUE (Pasien Datang Berobat)
+                        </label>
+                        <div class="flex space-x-2">
+                            <input type="text" id="input-enqueue-name" placeholder="Nama Pasien..." 
+                                class="flex-1 px-3 py-2.5 rounded-xl border border-emerald-300 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm">
+                            <button onclick="actionEnqueue()" 
+                                class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow-md btn-touch flex items-center space-x-1 shrink-0">
+                                <i class="fa-solid fa-plus-circle"></i>
+                                <span>ENQUEUE</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- DEQUEUE CONTROL -->
+                    <div class="flex flex-col bg-rose-50 border-2 border-rose-200 p-3 rounded-2xl justify-between">
+                        <label class="text-xs font-extrabold text-rose-800 mb-1.5 flex items-center">
+                            <i class="fa-solid fa-hospital-user mr-1 text-rose-600"></i> DEQUEUE (Panggil Pasien Terdepan)
+                        </label>
+                        <button onclick="actionDequeue()" 
+                            class="w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-2.5 rounded-xl text-sm shadow-md btn-touch flex items-center justify-center space-x-2">
+                            <i class="fa-solid fa-bell"></i>
+                            <span>PANGGIL PASIEN PERTAMA (DEQUEUE)</span>
+                        </button>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- ================= HALAMAN 5: HASIL SKOR & SERTIFIKAT ================= -->
+            <section id="page-result" class="hidden max-w-2xl mx-auto w-full my-auto text-center space-y-5">
+                <!-- SERTIFIKAT DIGITAL -->
+                <div id="certificate-card" class="bg-gradient-to-b from-sky-50 to-amber-50 border-8 border-sky-300 p-6 sm:p-8 rounded-3xl shadow-2xl relative overflow-hidden">
+                    
+                    <div class="w-20 h-20 bg-hospital-darkTeal text-yellow-300 rounded-full mx-auto flex items-center justify-center text-4xl shadow-lg mb-2 border-4 border-white floating">
+                        <i class="fa-solid fa-award"></i>
+                    </div>
+
+                    <span class="text-xs font-extrabold text-sky-800 tracking-widest uppercase">Sertifikat Kelulusan Simulasi Queue</span>
+                    <h2 class="text-2xl sm:text-4xl font-black text-slate-800 mt-1">MASTER ANTRIAN RUMAH SAKIT</h2>
+                    
+                    <p class="text-slate-600 text-xs sm:text-sm mt-2">Sertifikat ini secara resmi diberikan kepada:</p>
+                    <div id="res-name" class="text-2xl sm:text-3xl font-extrabold text-hospital-darkTeal my-1 underline decoration-yellow-400">Dr. Budi Santoso</div>
+                    <div id="res-class" class="text-xs sm:text-sm font-bold text-slate-500">Kelas: --</div>
+
+                    <div class="my-4 py-3 border-y-2 border-dashed border-sky-200 grid grid-cols-2 gap-2">
+                        <div>
+                            <span class="text-[10px] text-slate-400 font-bold uppercase block">Total Skor Akhir</span>
+                            <span id="res-score" class="text-2xl sm:text-3xl font-black text-emerald-600">0</span>
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-slate-400 font-bold uppercase block">Waktu Penyelesaian</span>
+                            <span id="res-time" class="text-2xl sm:text-3xl font-black text-sky-600">00:00</span>
+                        </div>
+                    </div>
+
+                    <p id="res-feedback" class="text-xs sm:text-sm font-semibold text-slate-700 italic">"Selamat! Kamu berhasil menguasai prinsip antrian FIFO Rumah Sakit secara sempurna!"</p>
+                </div>
+
+                <!-- BUTTONS NO PRINT -->
+                <div class="flex flex-wrap justify-center gap-3 no-print">
+                    <button onclick="window.print()" class="bg-slate-700 hover:bg-slate-800 text-white font-bold px-5 py-3 rounded-2xl text-xs sm:text-sm shadow-md transition btn-touch flex items-center space-x-2">
+                        <i class="fa-solid fa-print"></i>
+                        <span>Cetak / Simpan Sertifikat</span>
+                    </button>
+                    <button onclick="showPage('page-select-level')" class="bg-hospital-darkTeal hover:bg-blue-800 text-white font-bold px-6 py-3 rounded-2xl text-xs sm:text-sm shadow-md transition btn-touch flex items-center space-x-2">
+                        <i class="fa-solid fa-rotate-right"></i>
+                        <span>Mainkan Level Lain</span>
+                    </button>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- FOOTER -->
+        <footer class="bg-slate-100 border-t border-slate-200 p-3 text-center text-xs text-slate-500 font-semibold no-print">
+            Queue Master Hero &copy; Modul Edukasi Antrian Rumah Sakit Berbasis Struktur Data FIFO
+        </footer>
+
+    </main>
+
+    <!-- LOGIC SYSTEM JAVASCRIPT -->
+    <script>
+        /* STATE APLIKASI */
+        let state = {
+            userName: '',
+            userClass: '',
+            currentLevel: 1,
+            score: 0,
+            soundEnabled: true,
+            queue: [],
+            maxCapacity: 5,
+            levelMissions: [],
+            currentMissionIndex: 0,
+            timerInterval: null,
+            secondsElapsed: 0
+        };
+
+        // Kategori Pasien dengan Avatar & Keluhan
+        const patientTypes = [
+            { icon: 'fa-user-ninja', color: 'bg-purple-500', symptom: 'Batuk Flek' },
+            { icon: 'fa-user-nurse', color: 'bg-teal-500', symptom: 'Cek Tensi' },
+            { icon: 'fa-user-injured', color: 'bg-rose-500', symptom: 'Luka Ringan' },
+            { icon: 'fa-user-tie', color: 'bg-indigo-600', symptom: 'Pemeriksaan Rutin' },
+            { icon: 'fa-user-graduate', color: 'bg-amber-500', symptom: 'Pusing Kepala' }
+        ];
+
+        /* WEB AUDIO API SYNTHESIZER (Tanpa File External) */
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSound(type) {
+            if (!state.soundEnabled) return;
+            try {
+                const now = audioCtx.currentTime;
+
+                if (type === 'click') {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.connect(gain); gain.connect(audioCtx.destination);
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(450, now);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+                    osc.start(now); osc.stop(now + 0.05);
+                } 
+                else if (type === 'enqueue') {
+                    // Soft Doorbell / Pasien Masuk Tone
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.connect(gain); gain.connect(audioCtx.destination);
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(329.63, now); // E4
+                    osc.frequency.exponentialRampToValueAtTime(493.88, now + 0.15); // B4
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                    osc.start(now); osc.stop(now + 0.15);
+                } 
+                else if (type === 'dequeue') {
+                    // Hospital Chime (Ding-Dong Panggilan)
+                    const osc1 = audioCtx.createOscillator();
+                    const osc2 = audioCtx.createOscillator();
+                    const gain1 = audioCtx.createGain();
+                    const gain2 = audioCtx.createGain();
+
+                    osc1.connect(gain1); gain1.connect(audioCtx.destination);
+                    osc2.connect(gain2); gain2.connect(audioCtx.destination);
+
+                    osc1.type = 'sine';
+                    osc1.frequency.setValueAtTime(659.25, now); // E5
+                    gain1.gain.setValueAtTime(0.2, now);
+                    gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+
+                    osc2.type = 'sine';
+                    osc2.frequency.setValueAtTime(523.25, now + 0.2); // C5
+                    gain2.gain.setValueAtTime(0.2, now + 0.2);
+                    gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+
+                    osc1.start(now); osc1.stop(now + 0.3);
+                    osc2.start(now + 0.2); osc2.stop(now + 0.5);
+                } 
+                else if (type === 'error') {
+                    // Warning Buzzer Tone
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.connect(gain); gain.connect(audioCtx.destination);
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(130, now);
+                    osc.frequency.setValueAtTime(100, now + 0.1);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                    osc.start(now); osc.stop(now + 0.25);
+                } 
+                else if (type === 'win') {
+                    // Melodi Kemenangan
+                    const notes = [523.25, 659.25, 783.99, 1046.50]; // C E G C
+                    notes.forEach((freq, idx) => {
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.connect(gain); gain.connect(audioCtx.destination);
+                        osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+                        gain.gain.setValueAtTime(0.15, now + idx * 0.1);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.1 + 0.25);
+                        osc.start(now + idx * 0.1);
+                        osc.stop(now + idx * 0.1 + 0.25);
+                    });
+                }
+            } catch (e) { console.log(e); }
+        }
+
+        function toggleSound() {
+            state.soundEnabled = !state.soundEnabled;
+            const icon = document.getElementById('sound-icon');
+            if (state.soundEnabled) {
+                icon.className = 'fa-solid fa-volume-high';
+                playSound('click');
+            } else {
+                icon.className = 'fa-solid fa-volume-xmark text-rose-300';
+            }
+        }
+
+        /* NAVIGASI PAGE HALAMAN */
+        function showPage(pageId) {
+            playSound('click');
+            const pages = ['page-login', 'page-materi', 'page-select-level', 'page-gameplay', 'page-result'];
+            pages.forEach(p => document.getElementById(p).classList.add('hidden'));
+            document.getElementById(pageId).classList.remove('hidden');
+        }
+
+        /* HANDLER LOGIN */
+        function handleLogin(e) {
+            e.preventDefault();
+            const nama = document.getElementById('input-nama').value.trim();
+            const kelas = document.getElementById('input-kelas').value.trim();
+
+            if (!nama || !kelas) return;
+
+            state.userName = nama;
+            state.userClass = kelas;
+
+            document.getElementById('display-user-name').innerText = nama;
+            document.getElementById('display-user-class').innerText = 'Kelas: ' + kelas;
+            document.getElementById('header-user-info').classList.remove('hidden');
+
+            playSound('win');
+            showPage('page-materi');
+        }
+
+        /* SIMULASI GAMEPLAY ENGINE */
+        function startLevel(lvl) {
+            state.currentLevel = lvl;
+            state.score = 0;
+            state.queue = [];
+            state.currentMissionIndex = 0;
+            state.secondsElapsed = 0;
+
+            document.getElementById('game-level-badge').innerText = `Level ${lvl}`;
+            document.getElementById('game-score').innerText = '0';
+
+            if (lvl === 1) {
+                state.maxCapacity = 10;
+                state.levelMissions = [
+                    { text: "Daftarkan Pasien 'Budi' ke antrian (Enqueue)", action: "enqueue", targetName: "Budi" },
+                    { text: "Daftarkan Pasien 'Siti' ke antrian (Enqueue)", action: "enqueue", targetName: "Siti" },
+                    { text: "Panggil pasien pertama di depan (Dequeue)", action: "dequeue" },
+                    { text: "Panggil pasien berikutnya sampai antrian kosong!", action: "clear" }
+                ];
+            } else if (lvl === 2) {
+                state.maxCapacity = 3; // Batas kecil untuk pengujian Overflow
+                state.levelMissions = [
+                    { text: "Isi kursi antrian hingga PENUH (Kapasitas 3 Pasien)", action: "fill_full" },
+                    { text: "Coba Enqueue 1 Pasien lagi untuk melihat respon OVERFLOW!", action: "test_overflow" },
+                    { text: "Kosongkan seluruh ruang tunggu dengan Dequeue", action: "clear" },
+                    { text: "Coba Dequeue saat antrian kosong untuk melihat UNDERFLOW!", action: "test_underflow" }
+                ];
+            } else if (lvl === 3) {
+                state.maxCapacity = 4;
+                state.levelMissions = [
+                    { text: "Enqueue 2 Pasien: 'Andi' dan 'Rina'", action: "enqueue_two" },
+                    { text: "Panggil pasien terdepan masuk ke Ruang Dokter (Dequeue)!", action: "dequeue" },
+                    { text: "Daftarkan 'Doni', lalu selesaikan seluruh antrian!", action: "enqueue_then_clear" }
+                ];
+            }
+
+            const capBarCont = document.getElementById('capacity-bar-container');
+            const capText = document.getElementById('capacity-text');
+            if (lvl >= 2) {
+                capBarCont.classList.remove('hidden');
+                capText.classList.remove('hidden');
+            } else {
+                capBarCont.classList.add('hidden');
+                capText.classList.add('hidden');
+            }
+
+            updateMissionUI();
+            renderQueue();
+            startTimer();
+            showPage('page-gameplay');
+        }
+
+        /* TIMER ENGINE */
+        function startTimer() {
+            clearInterval(state.timerInterval);
+            state.timerInterval = setInterval(() => {
+                state.secondsElapsed++;
+                const mins = Math.floor(state.secondsElapsed / 60).toString().padStart(2, '0');
+                const secs = (state.secondsElapsed % 60).toString().padStart(2, '0');
+                document.getElementById('game-timer').innerText = `${mins}:${secs}`;
+            }, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(state.timerInterval);
+        }
+
+        function updateMissionUI() {
+            const mission = state.levelMissions[state.currentMissionIndex];
+            if (mission) {
+                document.getElementById('game-mission-text').innerText = mission.text;
+            } else {
+                finishLevel();
+            }
+        }
+
+        function showStatusMessage(text, isError = false) {
+            const msgBox = document.getElementById('status-message');
+            msgBox.innerText = text;
+            msgBox.classList.remove('hidden', 'bg-emerald-100', 'text-emerald-800', 'bg-rose-100', 'text-rose-800');
+            
+            if (isError) {
+                msgBox.classList.add('bg-rose-100', 'text-rose-800');
+            } else {
+                msgBox.classList.add('bg-emerald-100', 'text-emerald-800');
+            }
+
+            setTimeout(() => {
+                msgBox.classList.add('hidden');
+            }, 3000);
+        }
+
+        /* AKSI ENQUEUE PASIEN */
+        function actionEnqueue() {
+            const inputEl = document.getElementById('input-enqueue-name');
+            let name = inputEl.value.trim();
+
+            if (!name) {
+                name = "Pasien " + (state.queue.length + 1);
+            }
+
+            // CEK OVERFLOW
+            if (state.queue.length >= state.maxCapacity) {
+                playSound('error');
+                showStatusMessage(`⚠️ OVERFLOW! Ruang Tunggu Penuh (Max ${state.maxCapacity} Pasien). Panggil pasien terdepan terlebih dahulu!`, true);
+                
+                const currentMission = state.levelMissions[state.currentMissionIndex];
+                if (currentMission && currentMission.action === "test_overflow") {
+                    addScore(25);
+                    showStatusMessage("✅ Bagus! Kamu telah memahami konsep OVERFLOW!");
+                    state.currentMissionIndex++;
+                    updateMissionUI();
+                }
+                return;
+            }
+
+            // Masukkan ke Belakang Antrian (Rear/Tail)
+            const randomPatient = patientTypes[Math.floor(Math.random() * patientTypes.length)];
+            state.queue.push({
+                id: Date.now(),
+                name: name,
+                patientData: randomPatient
+            });
+
+            playSound('enqueue');
+            inputEl.value = '';
+            renderQueue();
+            evaluateEnqueueMission(name);
+        }
+
+        /* AKSI DEQUEUE PASIEN */
+        function actionDequeue() {
+            // CEK UNDERFLOW
+            if (state.queue.length === 0) {
+                playSound('error');
+                showStatusMessage("⚠️ UNDERFLOW! Tidak ada pasien di ruang tunggu yang bisa dipanggil!", true);
+
+                const currentMission = state.levelMissions[state.currentMissionIndex];
+                if (currentMission && currentMission.action === "test_underflow") {
+                    addScore(25);
+                    showStatusMessage("✅ Bagus! Kamu telah memahami konsep UNDERFLOW!");
+                    state.currentMissionIndex++;
+                    updateMissionUI();
+                }
+                return;
+            }
+
+            // Keluarkan dari Depan Antrian (Front/Head)
+            const servedPatient = state.queue.shift();
+            playSound('dequeue');
+            showStatusMessage(`🔔 Memanggil ${servedPatient.name} masuk ke Ruang Dokter!`);
+            
+            renderQueue();
+            evaluateDequeueMission();
+        }
+
+        function evaluateEnqueueMission(enteredName) {
+            const currentMission = state.levelMissions[state.currentMissionIndex];
+            if (!currentMission) return;
+
+            if (currentMission.action === "enqueue" && currentMission.targetName) {
+                if (enteredName.toLowerCase() === currentMission.targetName.toLowerCase()) {
+                    addScore(25);
+                    state.currentMissionIndex++;
+                    updateMissionUI();
+                }
+            } else if (currentMission.action === "fill_full") {
+                if (state.queue.length === state.maxCapacity) {
+                    addScore(25);
+                    state.currentMissionIndex++;
+                    updateMissionUI();
+                }
+            } else if (currentMission.action === "enqueue_two") {
+                if (state.queue.length >= 2) {
+                    addScore(25);
+                    state.currentMissionIndex++;
+                    updateMissionUI();
+                }
+            }
+        }
+
+        function evaluateDequeueMission() {
+            const currentMission = state.levelMissions[state.currentMissionIndex];
+            if (!currentMission) return;
+
+            if (currentMission.action === "dequeue") {
+                addScore(25);
+                state.currentMissionIndex++;
+                updateMissionUI();
+            } else if (currentMission.action === "clear" || currentMission.action === "enqueue_then_clear") {
+                if (state.queue.length === 0) {
+                    addScore(30);
+                    state.currentMissionIndex++;
+                    updateMissionUI();
+                }
+            }
+        }
+
+        function addScore(points) {
+            state.score += points;
+            document.getElementById('game-score').innerText = state.score;
+        }
+
+        /* RENDER VISUALISASI PASIEN */
+        function renderQueue() {
+            const container = document.getElementById('queue-container');
+            container.innerHTML = '';
+
+            if (state.queue.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-slate-400 py-6 font-semibold">
+                        <i class="fa-solid fa-chair text-3xl mb-1 block opacity-50"></i>
+                        Ruang Tunggu Kosong (Kondisi Underflow)
+                    </div>
+                `;
+            } else {
+                state.queue.forEach((item, index) => {
+                    const isFront = index === 0;
+                    const isRear = index === state.queue.length - 1;
+
+                    const itemEl = document.createElement('div');
+                    itemEl.className = `queue-item enqueue-anim shrink-0 flex flex-col items-center relative p-3 rounded-2xl bg-white border-2 ${isFront ? 'border-emerald-500 shadow-xl scale-105' : 'border-sky-200'} w-24 sm:w-28 text-center`;
+
+                    itemEl.innerHTML = `
+                        ${isFront ? '<span class="absolute -top-3 bg-emerald-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow">FRONT / DOKTER</span>' : ''}
+                        ${isRear && !isFront ? '<span class="absolute -top-3 bg-sky-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow">REAR / BARU</span>' : ''}
+                        
+                        <div class="w-11 h-11 ${item.patientData.color} text-white rounded-2xl flex items-center justify-center text-lg shadow-md my-1">
+                            <i class="fa-solid ${item.patientData.icon}"></i>
+                        </div>
+                        <span class="font-extrabold text-xs text-slate-800 truncate w-full mt-1">${item.name}</span>
+                        <span class="text-[10px] text-slate-400 font-bold">${item.patientData.symptom}</span>
+                        <span class="text-[10px] bg-slate-100 text-slate-600 font-extrabold px-1.5 py-0.5 rounded-md mt-1">#${index + 1}</span>
+                    `;
+
+                    container.appendChild(itemEl);
+                });
+            }
+
+            // Update Capacity Bar
+            const percentage = (state.queue.length / state.maxCapacity) * 100;
+            const capBar = document.getElementById('capacity-bar');
+            if (capBar) {
+                capBar.style.width = `${Math.min(percentage, 100)}%`;
+                capBar.className = percentage >= 100 ? 'bg-rose-500 h-full transition-all duration-300' : 'bg-hospital-teal h-full transition-all duration-300';
+            }
+
+            const capText = document.getElementById('capacity-text');
+            if (capText) {
+                capText.innerText = `Kapasitas Kursi: ${state.queue.length} / ${state.maxCapacity}`;
+            }
+        }
+
+        /* FINISH LEVEL & DISPLAY SERTIFIKAT */
+        function finishLevel() {
+            stopTimer();
+            playSound('win');
+
+            document.getElementById('res-name').innerText = state.userName;
+            document.getElementById('res-class').innerText = 'Kelas: ' + state.userClass;
+            document.getElementById('res-score').innerText = state.score;
+            
+            const mins = Math.floor(state.secondsElapsed / 60).toString().padStart(2, '0');
+            const secs = (state.secondsElapsed % 60).toString().padStart(2, '0');
+            document.getElementById('res-time').innerText = `${mins}:${secs}`;
+
+            const feedbackEl = document.getElementById('res-feedback');
+            if (state.score >= 75) {
+                feedbackEl.innerText = `"Luar Biasa! Kamu telah terampil mengelola antrian Rumah Sakit sesuai dengan kaidah FIFO (First In First Out)."`;
+            } else {
+                feedbackEl.innerText = `"Bagus! Kamu telah memahami dasar antrian. Teruskan latihan untuk meningkatkan efisiensi pemanggilan pasien!"`;
+            }
+
+            showPage('page-result');
+        }
+    </script>
+</body>
+</html>
